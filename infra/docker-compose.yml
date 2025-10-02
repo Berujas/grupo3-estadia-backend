@@ -18,5 +18,25 @@ services:
     container_name: app_redis
     ports:
       - "6379:6379"
+
+  api:
+    build:
+      context: ../api
+    container_name: app_api
+    env_file: ../.env
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "8000:8000"
+
+  etl:
+    build:
+      context: ../etl
+    container_name: app_etl
+    env_file: ../.env
+    depends_on:
+      - db
+
 volumes:
   dbdata:
