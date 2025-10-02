@@ -3,3 +3,23 @@ __pycache__/
 .env
 .mypy_cache/
 .pytest_cache/
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+
+# Envs / Secrets
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Docker
+*.log
+dist/
+build/
