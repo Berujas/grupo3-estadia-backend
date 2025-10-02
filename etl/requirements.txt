@@ -1,0 +1,5 @@
+pandas
+openpyxl
+pyarrow
+SQLAlchemy>=2.0
+pydantic-settings

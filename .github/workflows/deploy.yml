@@ -1,0 +1,69 @@
+name: deploy-ec2
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Tag de la imagen a desplegar (sha o latest)"
+        required: false
+        default: "latest"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Copia compose y .env al EC2
+      - name: Upload files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }} # ubuntu ó ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}  # private key PEM
+          source: "infra/docker-compose.prod.yml"
+          target: "/opt/app/"
+
+      - name: Upload env file
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: ".env.production"
+          target: "/opt/app/.env"  # renombrado en destino
+
+      - name: Update compose images to selected tag
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            sudo mkdir -p /opt/app
+            cd /opt/app
+
+            # Reemplaza OWNER/REPO e inyecta tag
+            OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+            REPO=$(basename "${{ github.repository }}")
+            TAG="${{ github.event.inputs.image_tag || 'latest' }}"
+
+            sed -i "s|ghcr.io/OWNER/${REPO}/api:latest|ghcr.io/${OWNER_LC}/${REPO}/api:${TAG}|g" docker-compose.prod.yml
+            sed -i "s|ghcr.io/OWNER/${REPO}/etl:latest|ghcr.io/${OWNER_LC}/${REPO}/etl:${TAG}|g" docker-compose.prod.yml
+
+            # Instala Docker si hace falta (user-data suele dejarlo instalado)
+            if ! command -v docker >/dev/null; then
+              curl -fsSL https://get.docker.com | sh
+              sudo usermod -aG docker $USER || true
+            fi
+
+            # Instala plugin compose si no existe
+            if ! docker compose version >/dev/null 2>&1; then
+              DOCKER_CONFIG=${HOME}/.docker
+              mkdir -p $DOCKER_CONFIG/cli-plugins
+              curl -SL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 -o $DOCKER_CONFIG/cli-plugins/docker-compose
+              chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
+            fi
+
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d

@@ -1,0 +1,25 @@
+services:
+  redis:
+    image: redis:7
+    container_name: app_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  api:
+    image: ghcr.io/OWNER/grupo3-estadia-backend/api:latest
+    container_name: app_api
+    env_file: /opt/app/.env
+    depends_on:
+      - redis
+    ports:
+      - "80:8000"     # expone la API en el puerto 80 del EC2
+    restart: unless-stopped
+
+  etl:
+    image: ghcr.io/OWNER/grupo3-estadia-backend/etl:latest
+    container_name: app_etl
+    env_file: /opt/app/.env
+    depends_on:
+      - api
+    restart: unless-stopped
