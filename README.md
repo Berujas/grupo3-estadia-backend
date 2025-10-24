@@ -131,7 +131,6 @@ MongoDB (si no está corriendo)
 - No commitear .env ni credenciales.
 - Security Group con HTTP 80 abierto para quienes consuman la API.
 - Ingesta acepta CSV (no .numbers).
-- Para archivos grandes: multipart; no hay hard-limit actual en la API.
 
 ## 📌 Reglas de negocio
 - Unicidad en estadias: ("episodio","marca_temporal").
@@ -143,4 +142,4 @@ MongoDB (si no está corriendo)
 
 ## 👥 Colaboración
 - SSH o VS Code Remote SSH (con tu .pem).
-- Tu equipo puede consumir la API desde su red si el SG lo permite.
+
