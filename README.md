@@ -9,14 +9,6 @@ Backend UC Christus — Ingesta & API (FastAPI + MongoDB)
 
 ---
 
-## 🔧 Variables de entorno (api/.env)
-MONGODB_URI=mongodb://app:app@mongo:27017/?authSource=admin
-MONGODB_DB=ucchristus
-MONGODB_COLLECTION=estadias
-MONGODB_COLLECTION_CAMAS=camas
-
----
-
 ## 🗃️ Base de datos (MongoDB)
 Base: ucchristus
 Colecciones:
@@ -46,11 +38,16 @@ Colecciones:
 
 1) POST /gestion/ingest/csv — Ingesta Gestión → estadias
 - Clave única: ("episodio","marca_temporal")
-- Respuesta: { "collection": "estadias", "inserted": N, "duplicates": D, "total": T, "unique_key_used": ["episodio","marca_temporal"] }
+- Respuesta:
+  ```bash
+  { "collection": "estadias", "inserted": N, "duplicates": D, "total": T, "unique_key_used": ["episodio","marca_temporal"] }
 - Ejemplos (macOS):
+  ```bash
+  # Nombre con espacios/acentos
   curl -fSs -X POST http://<IP>/gestion/ingest/csv \
     -F "file=@'$HOME/Downloads/Gestion Estadía(Respuestas Formulario).csv';type=text/csv"
-  o bien:
+  
+  # O renombrando
   cp "$HOME/Downloads/Gestion Estadía(Respuestas Formulario).csv" "$HOME/Downloads/gestion.csv"
   curl -fSs -X POST http://<IP>/gestion/ingest/csv \
     -F "file=@$HOME/Downloads/gestion.csv;type=text/csv"
@@ -59,6 +56,7 @@ Colecciones:
 - Encabezados normalizados (sin raw_*)
 - Campos comunes: unidad, sala, cama, estado, paciente, run/rut, diagnostico, episodio, snapshot_at, etc.
 - Ejemplo:
+  ```bash
   curl -fSs -X POST http://<IP>/camas/ingest/csv \
     -F "file=@$HOME/Downloads/camas.csv;type=text/csv"
 
@@ -66,6 +64,7 @@ Colecciones:
 - Devuelve por episodio (último registro por marca_temporal): episodio, nombre, sexo, rut/run, fecha_de_nacimiento, tipo_cuenta_1..3, fecha_admision, fecha_alta|null, convenio, nombre_de_la_aseguradora, valor_parcial, dias_hospitalizacion, ultima_cama (si hay fecha_alta → cama con marca_temporal ≤ fecha_alta 23:59:59 más cercana; si no hay o no aplica, null).
 - Params: limit (default 100, máx 2000), skip.
 - Ejemplo:
+  ```bash
   curl -sS "http://<IP>/gestion/personas/resumen?limit=5&skip=0" | jq .
 
 4) GET /gestion/episodios/resumen — Todos los registros por episodio
@@ -73,7 +72,11 @@ Colecciones:
   que_gestion_se_solicito, marca_temporal (y marco_temporal si existe), ultima_modificacion, fecha_inicio, hora_inicio, mes, ano, cama, texto_libre_diagnostico_admision, diagnostico_transfer, concretado, solicitud_de_traslado, status, causa_devolucion_rechazo, estado, motivo_de_cancelacion, motivo_de_rechazo, tipo_de_traslado, centro_de_destinatario, nivel_de_atencion, servicio_especialidad, fecha_de_finalizacion, hora_de_finalizacion, dias_solicitados_homecare, texto_libre_causa_rechazo.
 - Params: episodio (opcional), limit, skip.
 - Ejemplos:
+  ```bash
+  # Un episodio
   curl -sS "http://<IP>/gestion/episodios/resumen?episodio=1011454142" | jq .
+  
+  # Paginado
   curl -sS "http://<IP>/gestion/episodios/resumen?limit=3&skip=0" | jq .
 
 ---
@@ -87,6 +90,7 @@ Colecciones:
 
 ## ▶️ Despliegue (Docker)
 API
+  ```bash
   cd /opt/app/repo/api
   sudo docker build -t hello-api:latest .
   sudo docker stop api || true
@@ -97,26 +101,31 @@ API
     --env-file ../.env \
     --restart unless-stopped \
     hello-api:latest
+  ```
 
 MongoDB (si no está corriendo)
+  ```bash
   sudo docker run -d --name mongo \
     --network appnet \
     -p 27017:27017 \
     -e MONGO_INITDB_ROOT_USERNAME=app \
     -e MONGO_INITDB_ROOT_PASSWORD=app \
     mongo:6
+  ```
 
 ## 🧪 Verificación rápida (Mongo)
-- Entrar a mongosh dentro del contenedor:
+```bash
+##Entrar a mongosh dentro del contenedor:
   sudo docker exec -it mongo mongosh -u app -p app --authenticationDatabase admin
-- Dentro de mongosh:
+##Dentro de mongosh:
   use ucchristus
   show collections
   db.estadias.countDocuments({})
   db.camas.countDocuments({})
   db.estadias.find({episodio:"<EP>"},{_id:0}).sort({marca_temporal:1}).limit(3).pretty()
-- (Cuidado) borrar y reingestar:
+##(Cuidado) borrar y reingestar:
   db.estadias.deleteMany({})
+```
 
 ## 🛡️ Consideraciones
 - No commitear .env ni credenciales.
