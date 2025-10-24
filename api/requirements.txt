@@ -7,3 +7,6 @@ alembic
 redis
 python-jose[cryptography]
 passlib[bcrypt]
+motor
+pandas
+python-multipart
