@@ -1,0 +1,49 @@
+paths:
+  grd_path: data/GRD.xlsx
+  score_path: data/Score.xlsx
+  model_dir: models
+  reports_dir: reports
+  artifacts_dir: artifacts
+columns:
+  episode_id_grd: episodio_cmbd
+  episode_id_score_candidates:
+  - episodio
+  - buscar_episodio_con_asignacion_encuesta
+  fecha_ingreso: fecha_ingreso_completa
+  estancia_dias: estancia_del_episodio
+  estancia_norma: estancia_norma_grd
+forbidden_feature_patterns:
+- estancia_del_episodio
+- horas_de_estancia
+- estancias_
+- impacto_estancias
+- estancia_inlier_outlier
+drop_from_score:
+- id
+- hora_de_inicio
+- hora_de_finalizacion
+- fecha
+- hora_inicio
+- hora_termino
+- duracion_encuesta
+- tiempo_entre_encuesta
+- correo_electronico
+- nombre
+- nombre_completo
+feature_whitelist_grd:
+- edad_en_anos
+- sexo_desc_
+- tipo_ingreso_descripcion_
+- servicio_ingreso_descripcion_
+- prevision_desc_
+- ir_grd
+- ir_tipo_grd
+- ir_grd_codigo_
+- diagnostico_principal
+- proced_01_principal_cod_
+- estancia_norma_grd
+training:
+  test_size: 0.2
+  random_state: 42
+  time_split: true
+  calibration_cv: 3
