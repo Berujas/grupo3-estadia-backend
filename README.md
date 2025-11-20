@@ -80,7 +80,7 @@ Colecciones:
   curl -sS "http://<IP>/gestion/episodios/resumen?limit=3&skip=0" | jq .
 
 5) GET /gestion/episodios/{episodio}/cama-actual
--Devuelve la cama **más reciente** asociada al episodio, tomando prioridad por `snapshot_at` y luego `marca_temporal`.  
+- Devuelve la cama **más reciente** asociada al episodio, tomando prioridad por `snapshot_at` y luego `marca_temporal`.  
 No requiere que el episodio esté activo: por defecto **incluye dados de alta**.
 - Respuesta (ejemplo)
 ```json
@@ -93,6 +93,7 @@ No requiere que el episodio esté activo: por defecto **incluye dados de alta**.
   "paciente": null,
   "timestamp": "2025-01-01T00:00:00"
 }
+```
 - Ejemplos:
 ```bash
 curl -sS "http://<IP>/gestion/episodios/1020137038/cama-actual"
