@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from .routers.ingest import router as gestion_router
 from .routers.ingest_camas import router as camas_router
 from .routers.resumen import router as resumen_router
+from .routers import estadias
 
 app = FastAPI(title="API Backend - Scaffold")
 
@@ -12,3 +13,4 @@ def health():
 app.include_router(gestion_router)        # /gestion/ingest/csv
 app.include_router(camas_router)          # /camas/ingest/csv
 app.include_router(resumen_router)        # /gestion/episodios/resumen
+app.include_router(estadias.router)
