@@ -21,7 +21,7 @@ def _clean_nulls(doc: Dict[str, Any]) -> Dict[str, Any]:
 # ===========================================================
 @router.get("/personas/resumen")
 async def personas_resumen(
-    limit: int = Query(100, ge=1, le=2000),
+    limit: int = Query(100, ge=1, le=10000),
     skip: int = Query(0, ge=0),
 ):
     coll = get_collection()  # 'estadias'

@@ -1,10 +1,22 @@
 from typing import Any, Dict
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pymongo import ReturnDocument
 from bson import ObjectId
+
 from ..deps import get_db
 
 router = APIRouter(prefix="/gestion", tags=["gestion"])
+
+def _ensure_estadias_indexes(db):
+    # Para ordenar rápido por "más recientes primero"
+    try:
+        db.estadias.create_index([("created_at", -1), ("_id", -1)], name="estadias_created_desc")
+        # Índice de unicidad lógica si usas (episodio, marca_temporal) como clave
+        db.estadias.create_index([("episodio", 1), ("marca_temporal", 1)], name="estadias_key")
+    except Exception:
+        pass
 
 def _is_active_episode(db, episodio: str) -> bool:
     last = db.estadias.find_one(
@@ -56,6 +68,8 @@ def cama_actual(episodio: str, include_discharged: bool = True, db=Depends(get_d
 
 @router.post("/estadias", status_code=201)
 def crear_estadia(payload: Dict[str, Any], db=Depends(get_db)):
+    _ensure_estadias_indexes(db)
+
     episodio = str(payload.get("episodio", "")).strip()
     marca_temporal = payload.get("marca_temporal")
 
@@ -69,14 +83,18 @@ def crear_estadia(payload: Dict[str, Any], db=Depends(get_db)):
     if dup:
         raise HTTPException(status_code=409, detail="Duplicado (episodio, marca_temporal)")
 
+    # Marca de creación para poder ordenar "lo más nuevo primero"
+    if "created_at" not in payload or payload["created_at"] is None:
+        payload["created_at"] = datetime.now(timezone.utc)
+
     res = db.estadias.insert_one(payload)
-    return {"inserted_id": str(res.inserted_id)}
+    return {
+        "inserted_id": str(res.inserted_id),
+        "created_at": payload["created_at"].isoformat() if isinstance(payload.get("created_at"), datetime) else payload.get("created_at"),
+    }
 
 @router.put("/estadias/{episodio}/{registroId}")
 def editar_estadia(episodio: str, registroId: str, payload: Dict[str, Any], db=Depends(get_db)):
-    # Permite actualizar cualquier campo excepto los inmutables:
-    # - _id: id interno de Mongo
-    # - episodio y marca_temporal: definen la identidad/clave
     protected = {"_id", "episodio", "marca_temporal"}
     update = {k: v for k, v in payload.items() if k not in protected}
 
@@ -92,6 +110,10 @@ def editar_estadia(episodio: str, registroId: str, payload: Dict[str, Any], db=D
         raise HTTPException(status_code=404, detail="Registro no encontrado")
 
     doc["_id"] = str(doc["_id"])
+    # Normaliza created_at si es datetime
+    ca = doc.get("created_at")
+    if isinstance(ca, datetime):
+        doc["created_at"] = ca.isoformat()
     return doc
 
 @router.delete("/estadias/{episodio}/{registroId}", status_code=204)
