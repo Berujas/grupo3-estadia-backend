@@ -96,7 +96,7 @@ CANON_MAP = {
     "status": "status",
     "causa_devolucion_rechazo": "causa_devolucion_rechazo",
     "ultima_modificacion": "ultima_modificacion",
-    "episodio": "episodio",            # "Episodio:" -> "episodio"
+    "episodio": "episodio",
     "que_gestion_se_solicito": "que_gestion_se_solicito",
     "fecha_inicio": "fecha_inicio",
     "hora_inicio": "hora_inicio",
@@ -105,10 +105,10 @@ CANON_MAP = {
     "tipo_cuenta_2": "tipo_cuenta_2",
     "tipo_cuenta_3": "tipo_cuenta_3",
     "nombre": "nombre",
-    "rut": "run",                      # guardamos como 'run' (y también espejo 'rut' más abajo)
+    "rut": "run",
     "fecha_admision": "fecha_admision",
     "mes": "mes",
-    "ano": "ano",                      # "año"
+    "ano": "ano",
     "fecha_alta": "fecha_alta",
     "cama": "cama",
     "texto_libre_diagnostico_admision": "texto_libre_diagnostico_admision",
@@ -200,8 +200,7 @@ async def ingest_csv(file: UploadFile = File(...)):
             if src_slug == "rut":
                 doc["rut"] = doc.get("run")
 
-        # Si vino "marco_temporal" pero no "marca_temporal", ya lo mapeamos arriba.
-        # Asegura que existan claves requeridas en el doc:
+        # Asegura claves requeridas
         episodio = doc.get("episodio") or (row.get("episodio","") or None)
         marca = doc.get("marca_temporal") or (row.get("marca_temporal","") or row.get("marco_temporal","") or None)
         doc["episodio"] = episodio
@@ -212,13 +211,12 @@ async def ingest_csv(file: UploadFile = File(...)):
             if k in doc:
                 doc[k] = _to_int(doc[k])
 
-        # Ahora: agrega cualquier otra columna del CSV que no esté consumida (nombre slug)
+        # Agrega columnas extra no mapeadas (con heurística de fecha)
         for c in cols_slug:
             if c in consumed:
                 continue
             val = row.get(c, "")
             s = str(val).strip()
-            # conversión básica de fechas si parece fecha
             looks_date = False
             if re.fullmatch(r"\d{5}(\.\d+)?", s): looks_date = True           # serial excel
             if re.fullmatch(r"\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?)?", s): looks_date = True
@@ -241,7 +239,14 @@ async def ingest_csv(file: UploadFile = File(...)):
                 if need_sex: doc["sexo"] = syn["sexo"]
                 doc["_synthetic_identity"] = True
 
+        # Marca de origen
         doc["_tipo_fuente"] = "respuestas_formulario"
+
+        # --- Campos ML por defecto (si no vienen en el CSV) ---
+        for k in ("riesgo_social","riesgo_clinico","riesgo_administrativo","prob_sobre_estadia","grd_code"):
+            if k not in doc:
+                doc[k] = None
+
         docs.append(doc)
 
     if not docs:
@@ -268,5 +273,10 @@ async def ingest_csv(file: UploadFile = File(...)):
         duplicates = sum(1 for err in bwe.details.get("writeErrors", []) if err.get("code")==11000)
         inserted = bwe.details.get("nInserted", 0)
 
-    return {"collection": coll.name, "inserted": inserted, "duplicates": duplicates, "total": len(docs),
-            "unique_key_used": ["episodio","marca_temporal"]}
+    return {
+        "collection": coll.name,
+        "inserted": inserted,
+        "duplicates": duplicates,
+        "total": len(docs),
+        "unique_key_used": ["episodio","marca_temporal"]
+    }

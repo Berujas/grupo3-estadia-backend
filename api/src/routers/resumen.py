@@ -18,10 +18,11 @@ def _clean_nulls(doc: Dict[str, Any]) -> Dict[str, Any]:
 #   - Si fecha_alta != null -> ultima_cama = cama más cercana (<= fecha_alta)
 #     sacada del propio historial de gestión; si no hay -> null.
 #   - Si fecha_alta == null -> ultima_cama = null
+#   - Incluye campos ML: riesgo_*, prob_sobre_estadia, grd_code
 # ===========================================================
 @router.get("/personas/resumen")
 async def personas_resumen(
-    limit: int = Query(100, ge=1, le=2000),
+    limit: int = Query(100, ge=1, le=10000),
     skip: int = Query(0, ge=0),
 ):
     coll = get_collection()  # 'estadias'
@@ -58,7 +59,17 @@ async def personas_resumen(
             "dias_hospitalizacion": {"$last": "$dias_hospitalizacion"},
 
             # Historial para derivar ultima_cama desde gestión
-            "camas_hist": {"$push": {"mt": "$marca_temporal", "cama": "$cama"}}
+            "camas_hist": {"$push": {"mt": "$marca_temporal", "cama": "$cama"}},
+
+            # ---------- Campos ML (último valor) ----------
+            "riesgo_social": {"$last": "$riesgo_social"},
+            "riesgo_clinico": {"$last": "$riesgo_clinico"},
+            "riesgo_administrativo": {"$last": "$riesgo_administrativo"},
+            # guardamos ambos para hacer fallback luego en $project
+            "prob_sobre_estadia_last": {"$last": "$prob_sobre_estadia"},
+            "prob_sobre_estadia_alt_last": {"$last": "$probabilidad_sobre_estadia"},
+            "grd_code_last": {"$last": "$grd_code"},
+            "codigo_grd_last": {"$last": "$codigo_grd"},
         }},
         # Deriva ultima_cama desde historial si hay fecha_alta
         {"$addFields": {
@@ -114,7 +125,18 @@ async def personas_resumen(
             "nombre_de_la_aseguradora": 1,
             "valor_parcial": 1,
             "dias_hospitalizacion": 1,
-            "ultima_cama": 1
+            "ultima_cama": 1,
+
+            # ---------- Campos ML expuestos ----------
+            "riesgo_social": 1,
+            "riesgo_clinico": 1,
+            "riesgo_administrativo": 1,
+            "prob_sobre_estadia": {
+                "$ifNull": ["$prob_sobre_estadia_last", "$prob_sobre_estadia_alt_last"]
+            },
+            "grd_code": {
+                "$ifNull": ["$grd_code_last", "$codigo_grd_last"]
+            },
         }},
         {"$sort": {"episodio": 1}},
         {"$skip": skip},
@@ -131,6 +153,7 @@ async def personas_resumen(
 #     (ordenados del más antiguo al más nuevo) con los campos
 #     solicitados para CADA registro del episodio.
 #   - Si se pasa ?episodio=..., devuelve solo ese grupo.
+#   - Incluye los campos ML por registro.
 # ===========================================================
 @router.get("/episodios/resumen")
 async def episodios_resumen(
@@ -177,7 +200,18 @@ async def episodios_resumen(
                 "fecha_de_finalizacion": "$fecha_de_finalizacion",
                 "hora_de_finalizacion": "$hora_de_finalizacion",
                 "dias_solicitados_homecare": "$dias_solicitados_homecare",
-                "texto_libre_causa_rechazo": "$texto_libre_causa_rechazo"
+                "texto_libre_causa_rechazo": "$texto_libre_causa_rechazo",
+
+                # ---------- Campos ML por registro ----------
+                "riesgo_social": "$riesgo_social",
+                "riesgo_clinico": "$riesgo_clinico",
+                "riesgo_administrativo": "$riesgo_administrativo",
+                "prob_sobre_estadia": {
+                    "$ifNull": ["$prob_sobre_estadia", "$probabilidad_sobre_estadia"]
+                },
+                "grd_code": {
+                    "$ifNull": ["$grd_code", "$codigo_grd"]
+                },
             }}
         }},
         {"$project": {"_id": 0, "episodio": 1, "registros": 1}},

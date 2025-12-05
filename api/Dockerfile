@@ -5,6 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
+ENV PYTHONPATH="/app:/app/src:/app/src/ml:${PYTHONPATH}"
 
 # Dependencias
 COPY requirements.txt /tmp/requirements.txt
